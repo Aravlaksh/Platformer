@@ -1,2 +1,4 @@
 # Platformer
-A platformer game in which you need to reach the end to win.
+A platformer game with enemies that can kill you, gems that can be cloected and a door you need to reach.
+## Controls
+arrows to move and jump
