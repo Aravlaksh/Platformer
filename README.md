@@ -1,4 +1,5 @@
 # Platformer
-A platformer game with enemies that can kill you, gems that can be cloected and a door you need to reach.
+## Goal
+Collect gems and reach the end of the level.
 ## Controls
 arrows to move and jump
