@@ -40,17 +40,29 @@ font_xl = pygame.font.Font('assets/fonts/Dinomouse-Regular.otf', 96)
 font_lg = pygame.font.Font('assets/fonts/Dinomouse-Regular.otf', 64)
 # Load images
 hero_img = pygame.image.load('assets/images/characters/robot_idle.png').convert_alpha()
+
+
+
+
+
 grass_dirt_img = pygame.image.load('assets/images/tiles/grass_dirt.png').convert_alpha()
 platform_img = pygame.image.load('assets/images/tiles/block.png').convert_alpha()
 dirt_img = pygame.image.load('assets/images/tiles/dirt.png').convert_alpha()
 gem_img = pygame.image.load('assets/images/items/gem2.png').convert_alpha()
-enemy_img = pygame.image.load('assets/images/characters/enemy2a.png').convert_alpha()
-enemy2_img = pygame.image.load('assets/images/characters/enemy1a.png').convert_alpha()
-ghost_img = pygame.image.load('assets/images/characters/ghost.png').convert_alpha()
-bat_img = pygame.image.load('assets/images/characters/bat.png').convert_alpha()
+
+enemy_imgs = [pygame.image.load('assets/images/characters/enemy2a.png').convert_alpha(),
+              pygame.image.load('assets/images/characters/enemy2b.png').convert_alpha()]
+ghost_imgs = [pygame.image.load('assets/images/characters/ghost.png').convert_alpha(),
+              pygame.image.load('assets/images/characters/ghost.png').convert_alpha()]
+bat_imgs_rt = [pygame.image.load('assets/images/characters/bee.png').convert_alpha(),
+               pygame.image.load('assets/images/characters/bee_fly.png').convert_alpha()]
+
+bat_imgs_lt = [pygame.transform.flip(img, True, False) for img in bat_imgs_rt]
+
 heart_img = pygame.image.load('assets/images/items/heart.png').convert_alpha()
 flag_img = pygame.image.load('assets/images/tiles/door.png').convert_alpha()
 pole_img = pygame.image.load('assets/images/tiles/locked_door.png').convert_alpha()
+bg_img = pygame.image.load('assets/images/tiles/background.png').convert_alpha()
 
 # Load sounds
 
@@ -72,6 +84,36 @@ class Enitity(pygame.sprite.Sprite):
 
         if self.vy > terminal_velocity:
             self.vy = terminal_velocity
+
+
+class AnimatedEntity(Enitity):
+
+    def __init__(self, x, y, images):
+        super().__init__(x, y, images[0])
+
+
+        self.images = images
+        self.image_index = 0
+        self.ticks = 0
+        self.animation_speed = 8
+
+    def set_image_list(self):
+        self.images = self.images
+
+    def animate(self):
+        self.ticks += 1
+        self.set_image_list()
+
+        if self.ticks % self.animation_speed == 0:
+            self.image_index += 1
+
+            if self.image_index >= len(self.images):
+                self.image_index = 0
+
+            self.image = self.images[self.image_index]
+
+
+
 
 
 class Hero(Enitity):
@@ -148,8 +190,8 @@ class Hero(Enitity):
     def check_world_edges(self):
         if self.rect.left < 0:
             self.rect.left = 0
-        elif self.rect.right > WIDTH:
-            self.rect.right = WIDTH
+        elif self.rect.right > world_width:
+            self.rect.right = world_width
 
 
     def check_enemies(self):
@@ -177,6 +219,8 @@ class Hero(Enitity):
                 self.hurt_timer = 0
 
 
+
+
     
     def update(self):
         self.apply_gravity()
@@ -184,6 +228,7 @@ class Hero(Enitity):
         self.check_items()
         self.check_enemies()
         self.move_and_check_platforms()
+
        
 
 class Gem(Enitity):
@@ -197,10 +242,10 @@ class Gem(Enitity):
         character.score +=10
         print(character.gems)
 
-class Enemy(Enitity):
+class Enemy(AnimatedEntity):
     
-    def __init__(self, x, y, image):
-        super().__init__(x, y, image)
+    def __init__(self, x, y, images):
+        super().__init__(x, y, images)
         
 
         self.speed = 2
@@ -241,8 +286,8 @@ class Enemy(Enitity):
         if self.rect.left < 0:
             self.rect.left = 0
             self.reverse()
-        elif self.rect.right > WIDTH:
-            self.rect.right = WIDTH
+        elif self.rect.right > world_width:
+            self.rect.right = world_width
             self.reverse()
 
     def check_platform_edges(self):
@@ -269,6 +314,7 @@ class Enemy(Enitity):
         self.check_world_edges()
         self.apply_gravity()
         self.check_platform_edges()
+        self.animate()
 
 
 
@@ -276,22 +322,30 @@ class Enemy(Enitity):
 
 
 class Bat(Enemy):
-    def __init__(self, x, y, image):
-        super().__init__(x, y, image)
+    def __init__(self, x, y, images):
+        super().__init__(x, y, images)
+
+    def set_image_list(self):
+        if self.vx > 0:
+            self.images = bat_imgs_lt
+        else:
+            self.images = bat_imgs_rt
 
 
     def update(self):
         self.move_and_check_platforms()
         self.check_world_edges()
+        self.animate()
 
 class Ghost(Enemy):
-    def __init__(self, x, y, image):
-        super().__init__(x, y, image)
+    def __init__(self, x, y, images):
+        super().__init__(x, y, images)
 
 
     def update(self):
         self.move_and_check_platforms()
         self.check_world_edges()
+        self.animate()
 
 
 
@@ -393,17 +447,24 @@ def draw_grid(offset_x=0, offset_y=0):
 
 #setup
 def start_level():
-    global player, platforms, items, enemies
-    global hero, goal, gravity, terminal_velocity
+    global player, platforms, items, enemies, hero, goal, all_sprites
+    global gravity, terminal_velocity
+    global world_width, world_height
+
+
     player = pygame.sprite.GroupSingle()
     platforms = pygame.sprite.Group()
     items = pygame.sprite.Group()
     enemies = pygame.sprite.Group()
     goal = pygame.sprite.Group()
+    all_sprites = pygame.sprite.Group()
 
     #load level
     with open('assets/levels/world_1.json') as f:
         data = json.load(f)
+
+    world_width = data['width'] * GRID_SIZE
+    world_height = data['height']* GRID_SIZE
 
     for i, loc in enumerate(data['flag_locs']):
         if i == 0:
@@ -424,16 +485,21 @@ def start_level():
         items.add(Gem(loc[0], loc[1], gem_img))
 
     for loc in data ['enemy_locs']:
-        enemies.add(Enemy(loc[0], loc[1], enemy_img))
+        enemies.add(Enemy(loc[0], loc[1], enemy_imgs))
 
     for loc in data['bat_locs']:
-        enemies.add(Bat(loc[0], loc[1], bat_img))
+        enemies.add(Bat(loc[0], loc[1], bat_imgs_lt))
 
     for loc in data['ghost_locs']:
-        enemies.add(Ghost(loc[0], loc[1], ghost_img))
+        enemies.add(Ghost(loc[0], loc[1], ghost_imgs))
 
     hero.move_to(data['start'][0], data['start'][1])
     player.add(hero)
+
+    all_sprites.add(player, platforms, items, enemies, goal)
+
+
+
 
 #Physcias settings
     gravity = data['gravity']
@@ -445,10 +511,12 @@ def start_level():
 running = True
 grid_on = False
 
+
 start_game()
 start_level()
 
 while running:
+
     # Input handling
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -489,8 +557,8 @@ while running:
     
     # Game logic
     if stage == PLAYING:
-        player.update()
-        enemies.update()
+        all_sprites.update()
+        
 
         if hero.hearts ==0:
             stage = LOSE
@@ -504,16 +572,26 @@ while running:
         if countdown <= 0:
             start_level()
             stage = PLAYING
+            
+    if hero.rect.centerx < WIDTH //2:
+        offset_x = 0
+    elif hero.rect.centerx > world_width - WIDTH //2 :
+        offset_x = world_width - WIDTH
+    else:
+        offset_x = hero.rect.centerx - WIDTH // 2
+    
 
 
         
     # Drawing code
     screen.fill(SKY_BLUE)
-    player.draw(screen)
-    platforms.draw(screen)
-    items.draw(screen)
-    enemies.draw(screen)
-    goal.draw(screen)
+    screen.blit(bg_img, [0, 0])
+
+
+    for sprite in all_sprites:
+        screen.blit(sprite.image, [sprite.rect.x - offset_x, sprite.rect.y])
+
+   
     show_hud()
     if stage == START:
         show_start_screen()
@@ -522,7 +600,7 @@ while running:
     elif stage == LEVEL_COMPLETE:
         show_level_complete_screen()
     if grid_on:
-        draw_grid()
+        draw_grid(offset_x)
 
 
 
@@ -536,4 +614,6 @@ while running:
 
 # Close window and quit
 pygame.quit()
+
+
 
